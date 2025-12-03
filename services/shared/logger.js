@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 
-export class logger {
+class Logger {
     constructor(serviceName, serviceUrl='http://localhost:3004'){
         this.serviceName = serviceName;
         this.serviceUrl = serviceUrl
@@ -53,3 +53,5 @@ export class logger {
       }
 
 }
+
+export default Logger;
