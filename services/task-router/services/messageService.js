@@ -107,6 +107,124 @@ async function deliverViaHTTP(channel, messageData, traceId) {
     return await response.json();
   }
 
+  export async function deliverMessage(channel, messageData, traceId, attempts = 1) {
+    const subTraceId = logger.generateSubTraceId();
+    await logger.info(`Attempting to deliver via ${channel}`, traceId, subTraceId, {
+        attempts,
+        messageId: messageData.messageId
+    });
+
+    const channelQueue = getChannel();
+    const queues = getQueues();
+
+    if(channelQueue) {
+        const queueName = queues[channel.toLowerCase()];
+        const published = await publishMessage(queueName, { ...messageData, traceId, subTraceId });
+
+        if (published) {
+            await logger.info(`Message published to ${queueName}`, traceId, subTraceId);
+            return { success: true, method: 'queue', attempts: attempts };
+        }
+    }   
+
+    try {
+        const result = await deliverViaHTTP(channel, { ...messageData, traceId, subTraceId }, traceId);
+        await logger.info(`Message delivered via HTTP to ${channel}`, traceId, subTraceId);
+        return { success: true, method: 'http', result, attempts: attempts };
+    } catch (error) {
+        await logger.error(`Delivery attempt ${attempts} failed`, traceId, subTraceId, { error: error.message });
+        
+        if (attempts < MAX_RETRIES) {
+          await logger.info(`Retrying delivery, attempt ${attempts + 1}/${MAX_RETRIES}`, traceId, subTraceId);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempts));
+          return deliverMessage(channel, messageData, traceId, attempts + 1);
+        }
+        
+        throw error;
+    }
+}
+
+export async function sendMessage(payload, traceId) {
+    const subTraceId = logger.generateSubTraceId();
+
+    await logger.info('Processing new message', traceId, subTraceId, {
+        channel: payload.channel,
+        recipient: payload.recipient
+    })
+
+    try {
+        validatePayload(payload);
+      } catch (err) {
+        await logger.warn('Validation failed', traceId, subTraceId)
+        return { success: false, error: err.message,traceId };
+    };
+
+    const contentHash = generateHash(payload.channel.toLowerCase(), payload.recipient, payload.message);
+    console.log("contentHash", contentHash)
+
+    const duplicate = await checkDuplicateMsg(contentHash);
+    if(duplicate) {
+        await logger.warn('Duplicate message detected', traceId, subTraceId, { 
+            existingId: duplicate.id 
+        });
+        return {
+            success: false,
+            error: 'Duplicate message detected. This message was already sent recently.',
+            messageId: duplicate.id,
+            traceId
+            };
+    }
+
+    const messageId = uuidv4();
+    await saveMessage(messageId, payload, contentHash);
+    await logger.info('Message saved to database', traceId, subTraceId, { messageId });
+    console.log('Message saved to database', traceId, subTraceId, { messageId })
+
+    try {
+        const deliverResult = await deliverMessage(payload.channel.toLowerCase(), {
+            messageId,
+            recipient: payload.recipient,
+            message: payload.message,
+            metadata: payload.metadata   
+            },
+            traceId
+        )
+        console.log("DeliveryResult:", deliverResult)
+        await updateMessage(messageId, 'sent', deliverResult.attempts || 1);
+    
+        await logger.info('Message sent successfully', traceId, subTraceId, { 
+          messageId, 
+          method: deliverResult.method 
+        });
+        console.log('Message sent successfully', traceId, subTraceId, { 
+          messageId, 
+          method: deliverResult.method 
+        })
+        
+        return {
+          success: true,
+          messageId,
+          status: 'sent',
+          traceId
+        };
+      } catch (error) {
+        await updateMessage(messageId, 'failed', MAX_RETRIES);
+        
+        await logger.error('Message delivery failed after all retries', traceId, subTraceId, {
+          messageId,
+          error: error.message
+        });
+        
+        return {
+          success: false,
+          messageId,
+          status: 'failed',
+          error: error.message,
+          traceId
+        };
+      }
+    }
+
     export async function getMessageById(id) {
         const db = getDatabase();
         const row = db.prepare(`SELECT * FROM messages WHERE id= ?`).get(id);
