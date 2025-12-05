@@ -21,10 +21,12 @@ export const resolvers = {
       }
     },
     
-    messages: async (_, { limit = 100 }, context) => {
+    messages: async (_, { limit }, context) => {
       const { logger, traceId } = context;
       await logger.info('GraphQL: Fetching all messages', traceId, null, { limit });
-      
+      if(!limit || limit<1){
+        limit = 100;
+      }
       try {
         const messages = await getAllMessages();
         return messages.slice(0, limit);
