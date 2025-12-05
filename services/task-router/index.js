@@ -4,6 +4,8 @@ import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
 import { initDatabase } from './db/database.js';
 import { initRabbitMq } from './queue/rabbitmq.js';
+import { typeDefs } from './graphql/schema.js';
+import { resolvers } from './graphql/resolvers.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,17 +24,6 @@ app.get('/', (req, res) =>{
     return res.json({ msg: "Server is running!"})
 })
 
-const typeDefs = `#graphql
-    type Query { 
-      hello: String 
-    }
-    `;
-const resolvers = { 
-  Query: { 
-    hello: () => "hi" 
-  }
-};
-
 const server = new ApolloServer({
     typeDefs,
     resolvers,
@@ -49,8 +40,8 @@ app.use('/graphql', expressMiddleware(server, {
 
 app.listen(PORT, () =>{
     console.log(`Task Router Service running on port ${PORT}`);
-    console.log(`GraphQL endpoint: http://localhost:${PORT}/graphql`);
-    console.log(`REST endpoint: http://localhost:${PORT}/api/send`);
+    console.log(`\n📊 GraphQL API:`);
+    console.log(`   Endpoint: http://localhost:${PORT}/graphql`);
 })
 
 
