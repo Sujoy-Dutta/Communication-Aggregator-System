@@ -40,8 +40,8 @@ app.use('/graphql', expressMiddleware(server, {
 
 app.listen(PORT, () =>{
     console.log(`Task Router Service running on port ${PORT}`);
-    console.log(`\n📊 GraphQL API:`);
-    console.log(`   Endpoint: http://localhost:${PORT}/graphql`);
+    console.log(`\nGraphQL API:`);
+    console.log(`  Endpoint: http://localhost:${PORT}/graphql`);
 })
 
 

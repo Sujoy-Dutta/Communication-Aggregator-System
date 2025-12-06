@@ -87,27 +87,7 @@ async function updateMessage(id, status, attempts) {
     )
 }
 
-async function deliverViaHTTP(channel, messageData, traceId) {
-    const fetch = (await import('node-fetch')).default;
-    const endpoint = `${delivery_service_url}/deliver/${channel}`;
-    
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Trace-ID': traceId
-      },
-      body: JSON.stringify(messageData)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Delivery failed with status ${response.status}`);
-    }
-    
-    return await response.json();
-  }
-
-  export async function deliverMessage(channel, messageData, traceId, attempts = 1) {
+export async function deliverMessage(channel, messageData, traceId, attempts = 1) {
     const subTraceId = logger.generateSubTraceId();
     await logger.info(`Attempting to deliver via ${channel}`, traceId, subTraceId, {
         attempts,
@@ -117,38 +97,49 @@ async function deliverViaHTTP(channel, messageData, traceId) {
     const channelQueue = getChannel();
     const queues = getQueues();
 
-    if(channelQueue) {
-        const queueName = queues[channel.toLowerCase()];
-        
-        if (!queueName) {
-            await logger.warn(`No queue found for channel: ${channel}`, traceId, subTraceId, {
-                channel,
-                availableQueues: Object.keys(queues)
-            });
-        } else {
-            console.log(`[task-router] Publishing to queue: ${queueName} for channel: ${channel}`);
-            const published = await publishMessage(queueName, { ...messageData, traceId, subTraceId });
+    if (!channelQueue) {
+        await logger.error(`RabbitMQ not connected. Cannot deliver message.`, traceId, subTraceId, {
+            channel,
+            messageId: messageData.messageId
+        });
+        throw new Error('RabbitMQ is not available. Ensure RabbitMQ is running.');
+    }
 
-            if (published) {
-                await logger.info(`Message published to ${queueName}`, traceId, subTraceId);
-                return { success: true, method: 'queue', attempts: attempts };
-            } else {
-                await logger.warn(`Failed to publish to ${queueName}, will try HTTP fallback`, traceId, subTraceId);
-            }
-        }
-    }   
+    const queueName = queues[channel.toLowerCase()];
+    
+    if (!queueName) {
+        await logger.error(`No queue found for channel: ${channel}`, traceId, subTraceId, {
+            channel,
+            availableQueues: Object.keys(queues)
+        });
+        throw new Error(`Invalid channel: ${channel}`);
+    }
 
     try {
-        const result = await deliverViaHTTP(channel, { ...messageData, traceId, subTraceId }, traceId);
-        await logger.info(`Message delivered via HTTP to ${channel}`, traceId, subTraceId);
-        return { success: true, method: 'http', result, attempts: attempts };
+        console.log(`[task-router] Publishing to queue: ${queueName} for channel: ${channel}`);
+        const published = await publishMessage(queueName, { ...messageData, traceId, subTraceId });
+
+        if (!published) {
+            await logger.error(`Failed to publish to ${queueName}`, traceId, subTraceId, { channel });
+            
+            if (attempts < MAX_RETRIES) {
+                await logger.info(`Retrying delivery, attempt ${attempts + 1}/${MAX_RETRIES}`, traceId, subTraceId);
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempts));
+                return deliverMessage(channel, messageData, traceId, attempts + 1);
+            }
+            
+            throw new Error(`Failed to publish to queue after ${MAX_RETRIES} attempts`);
+        }
+
+        await logger.info(`Message published to ${queueName}`, traceId, subTraceId);
+        return { success: true, method: 'queue', attempts: attempts };
     } catch (error) {
         await logger.error(`Delivery attempt ${attempts} failed`, traceId, subTraceId, { error: error.message });
         
         if (attempts < MAX_RETRIES) {
-          await logger.info(`Retrying delivery, attempt ${attempts + 1}/${MAX_RETRIES}`, traceId, subTraceId);
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempts));
-          return deliverMessage(channel, messageData, traceId, attempts + 1);
+            await logger.info(`Retrying delivery, attempt ${attempts + 1}/${MAX_RETRIES}`, traceId, subTraceId);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempts));
+            return deliverMessage(channel, messageData, traceId, attempts + 1);
         }
         
         throw error;
