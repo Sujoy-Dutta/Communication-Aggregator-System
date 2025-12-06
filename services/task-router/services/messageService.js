@@ -119,11 +119,22 @@ async function deliverViaHTTP(channel, messageData, traceId) {
 
     if(channelQueue) {
         const queueName = queues[channel.toLowerCase()];
-        const published = await publishMessage(queueName, { ...messageData, traceId, subTraceId });
+        
+        if (!queueName) {
+            await logger.warn(`No queue found for channel: ${channel}`, traceId, subTraceId, {
+                channel,
+                availableQueues: Object.keys(queues)
+            });
+        } else {
+            console.log(`[task-router] Publishing to queue: ${queueName} for channel: ${channel}`);
+            const published = await publishMessage(queueName, { ...messageData, traceId, subTraceId });
 
-        if (published) {
-            await logger.info(`Message published to ${queueName}`, traceId, subTraceId);
-            return { success: true, method: 'queue', attempts: attempts };
+            if (published) {
+                await logger.info(`Message published to ${queueName}`, traceId, subTraceId);
+                return { success: true, method: 'queue', attempts: attempts };
+            } else {
+                await logger.warn(`Failed to publish to ${queueName}, will try HTTP fallback`, traceId, subTraceId);
+            }
         }
     }   
 

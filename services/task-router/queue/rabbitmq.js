@@ -6,10 +6,10 @@ let channel = null;
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
 
 const QUEUES = {
-    EMAIL: 'email_queue',
-    SMS: 'sms_queue',
-    WHATSAPP: 'whatsapp_queue',
-    LOGS: 'logs_queue'
+    email: 'email_queue',
+    sms: 'sms_queue',
+    whatsapp: 'whatsapp_queue',
+    logs: 'logs_queue'
   };
 
 export async function initRabbitMq() {
@@ -39,16 +39,28 @@ export function getQueues() {
 
 export async function publishMessage(queueName, message) {
     if(!channel){
+        console.error('[task-router][queue] No channel available for publishing');
         return false;
     }
 
     try {
-        channel.sendToQueue(queueName, Buffer.from(JSON.stringify(message)), {
+        const messageBuffer = Buffer.from(JSON.stringify(message));
+        const published = channel.sendToQueue(queueName, messageBuffer, {
             persistent: true
-        })
+        });
+        
+        if (!published) {
+            console.warn(`[task-router][queue] Message not published to ${queueName} - queue might be full`);
+            return false;
+        }
+        
+        console.log(`[task-router][queue] Message published to ${queueName}`, {
+            queueName,
+            messageId: message.messageId || 'unknown'
+        });
         return true;
     } catch (error) {
-        console.error('Failed to publish message:', error.message);
+        console.error(`[task-router][queue] Failed to publish message to ${queueName}:`, error.message);
         return false;
     }
 }
