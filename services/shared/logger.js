@@ -1,11 +1,21 @@
 import { v4 as uuidv4 } from "uuid";
+import {Client} from '@elastic/elasticsearch';
 
 class Logger {
-    constructor(serviceName, serviceUrl='http://localhost:3004'){
-        this.serviceName = serviceName;
-        this.serviceUrl = serviceUrl
-    }
+  constructor(
+    serviceName,
+    {
+      esNode = "http://localhost:9200",
+      indexName = "app-logs",
+    } = {}
+  ) {
+    this.serviceName = serviceName;
+    this.indexName = indexName;
 
+    this.esClient = new Client({
+      node: esNode,
+    });
+  }
     generateTraceId(){
         return uuidv4();
     }
@@ -14,26 +24,34 @@ class Logger {
     }
 
     async log(level, message, traceId, subTraceId = null, metadata={}) {
-        const logEntry = {
-            timestamp: new Date().toISOString(),
+
+          const doc = {
             service: this.serviceName,
-            level,
-            message,
+            level: level,
+            message :{
+              message,
+              metadata
+            },
             traceId,
             subTraceId: subTraceId || this.generateSubTraceId(),
-            metadata
-          };
-        
-          try {
-            await fetch(`${this.serviceUrl}/logs`, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json'},
-                body: JSON.stringify(logEntry)
-            })
-          } catch (error){
-            console.error('Failed to send log to logging service:', error.message);
+            timestamp: new Date().toISOString(),
           }
-        return logEntry;
+
+        try {
+
+          const result = await this.esClient.index(
+           {
+            index:  this.indexName,
+            document: doc
+           }
+          )
+          console.log(result)
+          return result;
+        }
+        catch (err) {
+          console.error('Failed to index log in Elasticsearch:', err);
+          return null;
+        }
     }
 
     async info(message, traceId, subTraceId = null, metadata = {}) {
