@@ -56,3 +56,36 @@
 
 Start everything with Docker Compose - 
 *docker compose up --build*
+
+
+***GraphQL Mutation Request - ***
+mutation SendMessage($input: SendMessageInput!) {
+  sendMessage(input: $input) {
+    success
+    messageId
+    status
+    error
+    traceId
+  }
+}
+*Payload* - 
+{
+  "input": {
+    "channel": "sms",
+    "recipient": "8617585012",
+    "message": "Hello!.",
+    "metadata": null
+  }
+}
+**Response** -
+{
+  "data": {
+    "sendMessage": {
+      "success": true,
+      "messageId": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "sent",
+      "error": null,
+      "traceId": "a1b2c3d4-e5f6-47g8-h9i0-j1k2l3m4n5o6"
+    }
+  }
+}
