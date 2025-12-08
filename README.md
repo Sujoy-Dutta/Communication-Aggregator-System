@@ -103,6 +103,8 @@ Start everything with Docker Compose -
 
 
 ***GraphQL Mutation Request - ***
+GraphQL: Send Message
+Mutation
 mutation SendMessage($input: SendMessageInput!) {
   sendMessage(input: $input) {
     success
@@ -112,16 +114,18 @@ mutation SendMessage($input: SendMessageInput!) {
     traceId
   }
 }
-*Payload* - 
+
+Payload
 {
   "input": {
     "channel": "sms",
     "recipient": "8617585012",
-    "message": "Hello!.",
+    "message": "Hello!",
     "metadata": null
   }
 }
-**Response** -
+
+Sample Response
 {
   "data": {
     "sendMessage": {
@@ -134,9 +138,7 @@ mutation SendMessage($input: SendMessageInput!) {
   }
 }
 
-**Check Message Status**
-
-graphql
+🔍 Query: Check Message Status
 query {
   message(id: "your-message-id") {
     id
@@ -149,10 +151,7 @@ query {
   }
 }
 
-
-**View All Messages**
-
-graphql
+📋 Query: View All Messages
 query {
   messages(limit: 10) {
     id
@@ -162,4 +161,3 @@ query {
     createdAt
   }
 }
-
