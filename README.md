@@ -93,7 +93,6 @@
   - `ELASTICSEARCH_NODE`
 
 **How To Start**
-- Prereqs:
   - Node.js (v18+ recommended)
   - Docker & Docker Compose (for full stack)
   - On Windows PowerShell, run commands shown below.
