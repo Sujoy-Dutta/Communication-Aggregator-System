@@ -53,7 +53,7 @@ Run the following command to build and start all containers:
 **Architecture Overview**
 - **Components:**
   - `task-router` (GraphQL service): validates and persists messages, then publishes delivery jobs to RabbitMQ queues. Runs on `http://localhost:3001` by default.
-  - `delivery-service` (HTTP consumer): consumes channel-specific RabbitMQ queues and persists final delivery records. Exposes an HTTP endpoint for direct delivery fallback. Runs on `http://localhost:3002` by default.
+  - `delivery-service` (HTTP consumer): consumes channel-specific RabbitMQ queues and persists final delivery records. Runs on `http://localhost:3002` by default.
   - `rabbitmq`: message broker used for asynchronous decoupled delivery.
   - `elasticsearch`: used by the provided `Logger` to index logs.
 - **Storage:** Both services use lightweight local SQLite DBs to store messages/deliveries.
@@ -78,7 +78,7 @@ Run the following command to build and start all containers:
 - **delivery-service**
   - Port: `3002` (default)
   - Health: `GET http://localhost:3002/`
-  - Direct delivery (fallback): `POST http://localhost:3002/deliver/:channel` — `:channel` is one of `email`, `sms`, `whatsapp`.
+  - channel` is one of `email`, `sms`, `whatsapp`.
   - Body for delivery POST:
     - JSON: `{ "recipient": "...", "message": "...", "metadata": { ... }, "traceId": "optional" }`
 
@@ -90,7 +90,7 @@ Run the following command to build and start all containers:
   - `PORT` (optional, defaults 3001)
   - `RABBITMQ_URL`
   - `LASTICSEARCH_NODE` (note: docker-compose uses this var name but code expects constructor param or default)
-  - `delivery_service_url` (code default: `http://localhost:3002`) — to use HTTP fallback, set `delivery_service_url`.
+  - `delivery_service_url` (code default: `http://localhost:3002`) — set `delivery_service_url`.
 - `delivery-service`:
   - `PORT` (optional, defaults 3002)
   - `RABBITMQ_URL`
