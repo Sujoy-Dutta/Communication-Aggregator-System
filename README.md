@@ -2,6 +2,29 @@
 - **Name:** Communication Aggregator System
 - **Purpose:** microservices that accepts messages via a GraphQL API (task-router), routes them to delivery channels (email, sms, whatsapp) using RabbitMQ, and a delivery service that consumes queues to mark deliveries. Logs are sent to Elasticsearch.
 
+**Message Processing Flow**
+
+Client Request
+    ↓
+GraphQL API (task-router-service)
+    ↓
+sendMessage Mutation
+    ↓
+messageService.sendMessage()
+    ↓
+[Validation & Duplicate Check]
+    ↓
+Save to Database (status: 'pending')
+    ↓
+deliverMessage()
+    ↓
+    ├─→ Try RabbitMQ Queue (if available)
+    │   ├─→ Publish to email_queue / sms_queue / whatsapp_queue
+    │   └─→ delivery-service consumer picks up message
+    │
+    └─→ Fallback to HTTP (if queue unavailable)
+        └─→ POST /deliver/:channel to delivery-service
+
 **Architecture Overview**
 - **Components:**
   - `task-router` (GraphQL service): validates and persists messages, then publishes delivery jobs to RabbitMQ queues. Runs on `http://localhost:3001` by default.
@@ -92,7 +115,7 @@ mutation SendMessage($input: SendMessageInput!) {
 
 **Check Message Status**
 
-```graphql
+graphql
 query {
   message(id: "your-message-id") {
     id
@@ -104,11 +127,11 @@ query {
     createdAt
   }
 }
-```
+
 
 **View All Messages**
 
-```graphql
+graphql
 query {
   messages(limit: 10) {
     id
@@ -118,4 +141,4 @@ query {
     createdAt
   }
 }
-```
+
