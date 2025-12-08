@@ -2,20 +2,15 @@ import { v4 as uuidv4 } from "uuid";
 import {Client} from '@elastic/elasticsearch';
 
 class Logger {
-  constructor(
-    serviceName,
-    {
-      esNode = "http://localhost:9200",
-      indexName = "app-logs",
-    } = {}
-  ) {
-    this.serviceName = serviceName;
-    this.indexName = indexName;
+    constructor(serviceName, { esNode, indexName } = {}) {
+      this.serviceName = serviceName;
+      this.indexName = indexName || 'app-logs';
+      const nodeUrl = esNode || 'http://elasticsearch:9200';
 
-    this.esClient = new Client({
-      node: esNode,
-    });
-  }
+      this.esClient = new Client({
+        node: nodeUrl,
+      });
+    }
     generateTraceId(){
         return uuidv4();
     }
