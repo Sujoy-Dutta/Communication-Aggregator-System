@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    container_name: rabbitmq
+    ports: 
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rabbitmq_network
+  elasticsearch:
+    image:  docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - rabbitmq_network
+
+  task-router:
+    build: 
+      context: .
+      dockerfile: Dockerfile.task-router
+    container_name: task-router
+    ports:
+      - "3001:3001"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: "amqp://user:password@rabbitmq:5672"
+      LASTICSEARCH_NODE: "http://elasticsearch:9200"
+      PORT: 3001 
+    networks:
+      - rabbitmq_network
+    
+  delivery-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.delivery-service
+    container_name: delivery-service
+    ports:
+      - "3002:3002"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: "amqp://user:password@rabbitmq:5672"
+      ELASTICSEARCH_NODE: "http://elasticsearch:9200"
+      PORT: 3002
+    networks:
+      - rabbitmq_network
+
+networks:
+  rabbitmq_network:
+    driver: bridge
+      
