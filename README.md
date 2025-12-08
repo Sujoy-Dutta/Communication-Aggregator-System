@@ -45,6 +45,8 @@
                  │ • Distributed Tracing              │
                  └────────────────────────────────────┘
 
+Start everything with Docker Compose - 
+*docker compose up --build*
 
 **Architecture Overview**
 - **Components:**
@@ -96,9 +98,6 @@
   - Node.js (v18+ recommended)
   - Docker & Docker Compose (for full stack)
   - On Windows PowerShell, run commands shown below.
-
-Start everything with Docker Compose - 
-*docker compose up --build*
 
 
 ***GraphQL Mutation Request - ***
