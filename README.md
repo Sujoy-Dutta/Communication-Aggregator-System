@@ -48,7 +48,7 @@
 🚀 Start All Services (Docker Compose)
 
 Run the following command to build and start all containers:
-docker compose up --build
+***docker compose up --build***
 
 **Architecture Overview**
 - **Components:**
