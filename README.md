@@ -4,26 +4,47 @@
 
 **Message Processing Flow**
 
-Client Request
-    ↓
-GraphQL API (task-router-service)
-    ↓
-sendMessage Mutation
-    ↓
-messageService.sendMessage()
-    ↓
-[Validation & Duplicate Check]
-    ↓
-Save to Database (status: 'pending')
-    ↓
-deliverMessage()
-    ↓
-    ├─→ Try RabbitMQ Queue (if available)
-    │   ├─→ Publish to email_queue / sms_queue / whatsapp_queue
-    │   └─→ delivery-service consumer picks up message
-    │
-    └─→ Fallback to HTTP (if queue unavailable)
-        └─→ POST /deliver/:channel to delivery-service
+                 ┌──────────────────────┐
+                 │     Client Request   │
+                 └──────────┬───────────┘
+                            │
+                 ┌──────────▼────────────────────────┐
+                 │     Task Router (GraphQL API)     │
+                 │            Port: 3001             │
+                 │-----------------------------------│
+                 │ • Message Validation              │
+                 │ • Duplicate Detection             │
+                 │ • SQLite Storage                  │
+                 │ • Publishes jobs to RabbitMQ      │
+                 └──────────┬────────────────────────┘
+                            │
+                 ┌──────────▼────────────────────────┐
+                 │       RabbitMQ Broker              │
+                 │            Port: 5672             │
+                 │-----------------------------------│
+                 │ • email_queue                      │
+                 │ • sms_queue                        │
+                 │ • whatsapp_queue                   │
+                 └──────────┬────────────────────────┘
+                            │
+                 ┌──────────▼────────────────────────┐
+                 │          Delivery Service          │
+                 │            Port: 3002             │
+                 │-----------------------------------│
+                 │ • Queue Consumer                   │
+                 │ • Message Processing               │
+                 │ • Delivery Tracking                │
+                 │ • SQLite Storage                   │
+                 └──────────┬────────────────────────┘
+                            │
+                 ┌──────────▼────────────────────────┐
+                 │           Elasticsearch            │
+                 │            Port: 9200             │
+                 │-----------------------------------│
+                 │ • Centralized Logging              │
+                 │ • Distributed Tracing              │
+                 └────────────────────────────────────┘
+
 
 **Architecture Overview**
 - **Components:**
