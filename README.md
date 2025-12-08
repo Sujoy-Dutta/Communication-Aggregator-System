@@ -89,3 +89,33 @@ mutation SendMessage($input: SendMessageInput!) {
     }
   }
 }
+
+**Check Message Status**
+
+```graphql
+query {
+  message(id: "your-message-id") {
+    id
+    channel
+    recipient
+    message
+    status
+    attempts
+    createdAt
+  }
+}
+```
+
+**View All Messages**
+
+```graphql
+query {
+  messages(limit: 10) {
+    id
+    channel
+    recipient
+    status
+    createdAt
+  }
+}
+```
